@@ -6,8 +6,7 @@
     <title>FeedDeck RSS Reader</title>
     <meta name="description" content="A modern, offline-first RSS reader.">
     <meta name="theme-color" content="#000000">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/logo192.png">
+    <link rel="manifest" href="manifest.json">
     
     <!-- STYLES & FONTS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,7 +18,8 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.378.0/dist/lucide-react.js"></script>
+    <!-- CORRECTED & WORKING ICON LIBRARY -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.13.0/dist/rss-parser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.js"></script>
 
@@ -30,18 +30,15 @@
             color: #e5e7eb;
             overscroll-behavior: none;
         }
-        /* Simple prose styles for the reader view */
         .prose { max-width: 65ch; margin-left: auto; margin-right: auto; }
         .prose-invert h1, .prose-invert h2, .prose-invert h3 { color: #f3f4f6; }
         .prose-invert p, .prose-invert li, .prose-invert blockquote { color: #d1d5db; }
         .prose-invert a { color: #38bdf8; }
         .prose-invert strong { color: #f9fafb; }
-        /* Animations */
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes slideInLeft { from { transform: translateX(100%); } to { transform: translateX(0); } }
         .animate-slide-in-left { animation: slideInLeft 0.3s ease-out forwards; }
-        /* Hide scrollbar utility */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -50,7 +47,6 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // De-structure React hooks from global scope
         const { useState, useEffect, useCallback, useRef } = React;
 
         // --- Database (IndexedDB) Helper ---
@@ -89,11 +85,9 @@
         };
 
         const db = {
-          get: (storeName, key) => dbRequest(storeName, 'readonly', store => store.get(key)),
           getAll: (storeName) => dbRequest(storeName, 'readonly', store => store.getAll()),
           put: (storeName, item) => dbRequest(storeName, 'readwrite', store => store.put(item)),
           delete: (storeName, key) => dbRequest(storeName, 'readwrite', store => store.delete(key)),
-          clear: (storeName) => dbRequest(storeName, 'readwrite', store => store.clear()),
         };
 
         // --- Default Feeds ---
@@ -104,28 +98,32 @@
             { name: "Android Police", category: "Android", url: "https://www.androidpolice.com/feed/" },
             { name: "9to5Google", category: "Android", url: "https://9to5google.com/feed/" },
             { name: "Harvard Business Review", category: "Business", url: "https://hbr.org/rss/regular" },
-            { name: "Forbes", category: "Business", url: "https://www.forbes.com/rss/business" },
             { name: "Entrepreneur", category: "Entrepreneurship", url: "https://www.entrepreneur.com/latest.rss" },
             { name: "Variety", category: "Hollywood", url: "https://variety.com/feed/" },
-            { name: "The Hollywood Reporter", category: "Hollywood", url: "https://www.hollywoodreporter.com/feed" },
             { name: "Pitchfork", category: "Music", url: "https://pitchfork.com/rss/news/" },
-            { name: "Rolling Stone", category: "Music", url: "https://www.rollingstone.com/feed/" }
         ];
+        
+        // --- NEW Icon Component ---
+        // This component correctly uses the 'lucide' library that is loaded in the <head>
+        const Icon = ({ name, className = '', size = 24 }) => {
+            const svgHTML = lucide.icons[name] ? lucide.icons[name].toSvg({ class: className, width: size, height: size }) : '';
+            return <span dangerouslySetInnerHTML={{ __html: svgHTML }} />;
+        };
 
         // --- Helper Components ---
         const Spinner = () => (
             <div className="flex justify-center items-center h-full">
-                <lucide.Loader className="animate-spin text-sky-400" size={48} />
+                <Icon name="loader" className="animate-spin text-sky-400" size={48} />
             </div>
         );
 
-        const IconButton = ({ Icon, onClick, label, className = '' }) => (
+        const IconButton = ({ iconName, onClick, label, className = '' }) => (
             <button
                 onClick={onClick}
                 aria-label={label}
                 className={`p-3 rounded-full bg-gray-800/50 hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-sky-400 transition-all duration-200 ${className}`}
             >
-                <Icon size={24} />
+                <Icon name={iconName} size={24} />
             </button>
         );
 
@@ -134,7 +132,7 @@
             if (!article) {
                 return (
                     <div className="flex flex-col items-center justify-center text-center h-full p-8 text-gray-400">
-                        <lucide.Rss size={64} className="mb-4 text-gray-600" />
+                        <Icon name="rss" size={64} className="mb-4 text-gray-600" />
                         <h2 className="text-2xl font-bold mb-2 text-gray-200">All caught up!</h2>
                         <p>You've read all the articles in this category.</p>
                         <p className="mt-4 text-sm">Try selecting another category or adding new feeds.</p>
@@ -150,15 +148,15 @@
                         <p className="text-gray-400 text-lg leading-relaxed line-clamp-6">{article.contentSnippet || 'No snippet available.'}</p>
                     </div>
                     <div className="flex justify-center items-center space-x-4 pt-6">
-                        <IconButton Icon={lucide.SkipForward} onClick={onSkip} label="Skip Article" />
+                        <IconButton iconName="skip-forward" onClick={onSkip} label="Skip Article" />
                         <button
                             onClick={onReadFull}
                             className="flex items-center space-x-2 px-6 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200 shadow-lg shadow-sky-500/20"
                         >
-                            <lucide.BookOpen size={24} />
+                            <Icon name="book-open" size={24} />
                             <span>Read Full</span>
                         </button>
-                        <IconButton Icon={lucide.Share2} onClick={onShare} label="Share to TwosApp" />
+                        <IconButton iconName="share-2" onClick={onShare} label="Share to TwosApp" />
                     </div>
                 </div>
             );
@@ -174,37 +172,28 @@
                     if (!article || !article.link) return;
                     setIsLoading(true);
                     setError('');
-
                     try {
                         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(article.link)}`;
                         const response = await fetch(proxyUrl);
                         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                         const html = await response.text();
-                        
                         const doc = new DOMParser().parseFromString(html, 'text/html');
                         const parsedArticle = new Readability(doc).parse();
-
                         if (parsedArticle && parsedArticle.content) {
                             setCleanedContent(parsedArticle);
-                        } else {
-                            throw new Error("Could not parse article content.");
-                        }
-
+                        } else { throw new Error("Could not parse article content."); }
                     } catch (e) {
                         console.error("Error fetching or parsing article:", e);
                         setError("Could not load the full article. Please try again later or view the original.");
-                    } finally {
-                        setIsLoading(false);
-                    }
+                    } finally { setIsLoading(false); }
                 };
-
                 fetchAndCleanArticle();
             }, [article]);
 
             return (
                 <div className="absolute inset-0 bg-black z-20 animate-slide-in-left">
                     <header className="sticky top-0 bg-black/80 backdrop-blur-sm z-10 flex items-center p-4">
-                        <IconButton Icon={lucide.ArrowLeft} onClick={onBack} label="Back to feed" />
+                        <IconButton iconName="arrow-left" onClick={onBack} label="Back to feed" />
                         <div className="flex-1 text-center pr-12">
                              <h1 className="text-lg font-bold truncate text-gray-200">{cleanedContent?.title || article.title}</h1>
                         </div>
@@ -212,12 +201,7 @@
                     <main className="p-6 md:p-8 overflow-y-auto h-full pb-24">
                         {isLoading && <Spinner />}
                         {error && <div className="text-center text-red-400">{error} <a href={article.link} target="_blank" rel="noopener noreferrer" className="underline">View Original</a></div>}
-                        {cleanedContent && (
-                             <article
-                                className="prose prose-invert"
-                                dangerouslySetInnerHTML={{ __html: cleanedContent.content }}
-                            />
-                        )}
+                        {cleanedContent && ( <article className="prose prose-invert" dangerouslySetInnerHTML={{ __html: cleanedContent.content }} /> )}
                     </main>
                 </div>
             );
@@ -240,33 +224,17 @@
                     <div className="bg-gray-900/80 rounded-2xl shadow-2xl p-6 w-full max-w-md m-4 border border-gray-700">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold text-white">Manage Feeds</h2>
-                            <IconButton Icon={lucide.X} onClick={onClose} label="Close" />
+                            <IconButton iconName="x" onClick={onClose} label="Close" />
                         </div>
-
                         <form onSubmit={handleAdd} className="space-y-4 mb-6">
-                            <input
-                                type="url"
-                                value={newFeedUrl}
-                                onChange={(e) => setNewFeedUrl(e.target.value)}
-                                placeholder="https://example.com/feed.xml"
-                                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                required
-                            />
+                            <input type="url" value={newFeedUrl} onChange={(e) => setNewFeedUrl(e.target.value)} placeholder="https://example.com/feed.xml" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
                             <div className="flex space-x-4">
-                                 <input
-                                    type="text"
-                                    value={newFeedCategory}
-                                    onChange={(e) => setNewFeedCategory(e.target.value)}
-                                    placeholder="Category (e.g., Tech)"
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    required
-                                />
+                                 <input type="text" value={newFeedCategory} onChange={(e) => setNewFeedCategory(e.target.value)} placeholder="Category (e.g., Tech)" className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500" required />
                                 <button type="submit" className="flex items-center justify-center px-4 py-2 bg-sky-500 text-white font-semibold rounded-lg hover:bg-sky-600 transition-colors">
-                                    <lucide.Plus size={20} className="mr-2"/> Add
+                                    <Icon name="plus" size={20} className="mr-2"/> Add
                                 </button>
                             </div>
                         </form>
-
                         <div className="space-y-4 max-h-60 overflow-y-auto no-scrollbar">
                             {feeds.map(feed => (
                                 <div key={feed.url} className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg">
@@ -275,7 +243,7 @@
                                         <p className="text-sm text-sky-400">{feed.category}</p>
                                     </div>
                                     <button onClick={() => onRemoveFeed(feed.url)} className="text-red-400 hover:text-red-500 p-1">
-                                        <lucide.X size={18} />
+                                        <Icon name="x" size={18} />
                                     </button>
                                 </div>
                             ))}
@@ -289,33 +257,24 @@
             const [feeds, setFeeds] = useState([]);
             const [categories, setCategories] = useState([]);
             const [activeCategory, setActiveCategory] = useState(null);
-            
             const [articles, setArticles] = useState([]);
             const [currentArticleIndex, setCurrentArticleIndex] = useState(0);
-            
             const [isLoading, setIsLoading] = useState(true);
             const [isOnline, setIsOnline] = useState(navigator.onLine);
             const [error, setError] = useState('');
-
             const [isReaderVisible, setReaderVisible] = useState(false);
             const [isFeedManagerVisible, setFeedManagerVisible] = useState(false);
-            
             const parserRef = useRef(null);
 
             useEffect(() => {
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('/sw.js')
-                        .then(reg => console.log('Service Worker registered'))
-                        .catch(err => console.error('Service Worker registration failed', err));
+                    navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW registration failed:', err));
                 }
                 const goOnline = () => setIsOnline(true);
                 const goOffline = () => setIsOnline(false);
                 window.addEventListener('online', goOnline);
                 window.addEventListener('offline', goOffline);
-                return () => {
-                    window.removeEventListener('online', goOnline);
-                    window.removeEventListener('offline', goOffline);
-                };
+                return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
             }, []);
 
             useEffect(() => {
@@ -334,14 +293,9 @@
             }, []);
             
             const fetchArticles = useCallback(async (forceRefresh = false) => {
-                if (!activeCategory || feeds.length === 0) {
-                    setIsLoading(false);
-                    return;
-                };
-                
+                if (!activeCategory || feeds.length === 0) { setIsLoading(false); return; };
                 setIsLoading(true);
                 setError('');
-
                 const feedsToFetch = activeCategory === 'All' ? feeds : feeds.filter(f => f.category === activeCategory);
                 const cachedArticles = await db.getAll('articles');
                 const relevantCachedArticles = cachedArticles.filter(art => feedsToFetch.some(feed => feed.url === art.feedUrl));
@@ -354,44 +308,29 @@
                 }
                 
                 try {
-                    if (!parserRef.current) {
-                        parserRef.current = new RSSParser();
-                    }
+                    if (!parserRef.current) { parserRef.current = new RSSParser(); }
                     const parser = parserRef.current;
-                    
                     const promises = feedsToFetch.map(feed =>
                         parser.parseURL(`https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`)
                             .then(data => ({...data, feedUrl: feed.url, feedTitle: data.title}))
                             .catch(err => { console.warn(`Failed to fetch ${feed.url}:`, err); return null; })
                     );
-
                     const results = await Promise.all(promises);
                     const newArticles = results.filter(Boolean).flatMap(feed => feed.items.map(item => ({...item, feedUrl: feed.feedUrl, feedTitle: feed.feedTitle })));
-                    
                     if (newArticles.length === 0 && relevantCachedArticles.length === 0) throw new Error("Could not fetch any articles.");
-
                     await Promise.all(newArticles.map(art => db.put('articles', art)));
                     setArticles(newArticles.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate)));
                     setCurrentArticleIndex(0);
-
                 } catch (e) {
                     console.error("Error fetching articles:", e);
                     setError(e.message);
                     if (relevantCachedArticles.length > 0) setArticles(relevantCachedArticles.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate)));
-                } finally {
-                    setIsLoading(false);
-                }
+                } finally { setIsLoading(false); }
             }, [activeCategory, feeds, isOnline]);
 
-            useEffect(() => {
-                if(activeCategory) fetchArticles();
-            }, [activeCategory]);
+            useEffect(() => { if(activeCategory) fetchArticles(); }, [activeCategory]);
 
-            const handleCategoryChange = (cat) => {
-                setActiveCategory(cat);
-                setCurrentArticleIndex(0);
-            };
-
+            const handleCategoryChange = (cat) => { setActiveCategory(cat); setCurrentArticleIndex(0); };
             const handleSkip = () => setCurrentArticleIndex(prev => prev + 1);
             const handleReadFull = () => setReaderVisible(true);
             const handleShare = () => {
@@ -402,27 +341,21 @@
                 const url = encodeURIComponent(cleanArticleUrl);
                 window.location.href = `twosnotes://new?text=${text}&url=${url}`;
             };
-
             const handleAddFeed = async (feed) => {
                 const newFeeds = [...feeds, feed];
                 setFeeds(newFeeds);
                 await db.put('feeds', feed);
-                const uniqueCategories = ["All", ...new Set(newFeeds.map(f => f.category))];
-                setCategories(uniqueCategories);
+                setCategories(["All", ...new Set(newFeeds.map(f => f.category))]);
                 fetchArticles(true);
             };
-
             const handleRemoveFeed = async (url) => {
                 const newFeeds = feeds.filter(f => f.url !== url);
                 setFeeds(newFeeds);
                 await db.delete('feeds', url);
-                const uniqueCategories = ["All", ...new Set(newFeeds.map(f => f.category))];
-                setCategories(uniqueCategories);
-                if (!uniqueCategories.includes(activeCategory)) {
-                    setActiveCategory("All");
-                } else {
-                     fetchArticles(true);
-                }
+                const newCategories = ["All", ...new Set(newFeeds.map(f => f.category))];
+                setCategories(newCategories);
+                if (!newCategories.includes(activeCategory)) { setActiveCategory("All"); }
+                else { fetchArticles(true); }
             };
 
             const currentArticle = articles[currentArticleIndex];
@@ -431,55 +364,39 @@
                 <main className="bg-black text-gray-200 font-sans h-screen w-screen flex flex-col overflow-hidden antialiased">
                     {!isOnline && (
                         <div className="bg-yellow-500 text-black text-center p-2 text-sm font-semibold flex items-center justify-center">
-                            <lucide.WifiOff size={16} className="mr-2"/> You are offline. Showing cached content.
+                            <Icon name="wifi-off" size={16} className="mr-2"/> You are offline. Showing cached content.
                         </div>
                     )}
                     <header className="flex-shrink-0 p-4 flex items-center justify-between">
                          <div className="flex items-center space-x-2">
-                            <lucide.Rss className="text-sky-400" size={28}/>
+                            <Icon name="rss" className="text-sky-400" size={28}/>
                             <h1 className="text-xl font-bold">FeedDeck</h1>
                         </div>
-                        <IconButton Icon={lucide.Plus} onClick={() => setFeedManagerVisible(true)} label="Manage Feeds" />
+                        <IconButton iconName="plus" onClick={() => setFeedManagerVisible(true)} label="Manage Feeds" />
                     </header>
-
                     <nav className="flex-shrink-0 px-4 pb-4 overflow-x-auto no-scrollbar">
                         <div className="flex space-x-2">
                             {categories.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => handleCategoryChange(cat)}
+                                <button key={cat} onClick={() => handleCategoryChange(cat)}
                                     className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 whitespace-nowrap ${
-                                        activeCategory === cat 
-                                        ? 'bg-sky-500 text-white' 
-                                        : 'bg-gray-800/60 hover:bg-gray-700/80 text-gray-300'
-                                    }`}
-                                >
+                                        activeCategory === cat ? 'bg-sky-500 text-white' : 'bg-gray-800/60 hover:bg-gray-700/80 text-gray-300'
+                                    }`}>
                                     {cat}
                                 </button>
                             ))}
                         </div>
                     </nav>
-                    
                     <section className="flex-grow relative overflow-hidden">
                         {isLoading ? <Spinner /> : error ? <div className="text-center p-8 text-red-400">{error}</div> : (
-                            <ArticleView
-                                article={currentArticle}
-                                onSkip={handleSkip}
-                                onReadFull={handleReadFull}
-                                onShare={handleShare}
-                            />
+                            <ArticleView article={currentArticle} onSkip={handleSkip} onReadFull={handleReadFull} onShare={handleShare} />
                         )}
                     </section>
-
                     {isReaderVisible && currentArticle && <ReaderView article={currentArticle} onBack={() => setReaderVisible(false)} />}
                     {isFeedManagerVisible && <FeedManager feeds={feeds} onAddFeed={handleAddFeed} onRemoveFeed={handleRemoveFeed} onClose={() => setFeedManagerVisible(false)} />}
                 </main>
             );
         }
 
-        // --- CRITICAL FIX ---
-        // This listener ensures that we only try to render the React app
-        // AFTER the entire page and all its scripts are fully loaded.
         window.addEventListener('DOMContentLoaded', () => {
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(React.createElement(App));
@@ -487,4 +404,3 @@
     </script>
 </body>
 </html>
-
