@@ -18,7 +18,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- CORRECTED & WORKING ICON LIBRARY -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.13.0/dist/rss-parser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mozilla/readability@0.5.0/Readability.js"></script>
@@ -44,7 +43,10 @@
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- Fallback loading message -->
+        <p style="text-align: center; padding-top: 40vh;">Loading App...</p>
+    </div>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useRef } = React;
@@ -58,8 +60,8 @@
         const openDB = () => {
           return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onerror = () => reject("Error opening DB");
-            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject("IndexedDB error: " + request.error);
+            request.onsuccess = (event) => resolve(event.target.result);
             request.onupgradeneeded = (event) => {
               const db = event.target.result;
               if (!db.objectStoreNames.contains(ARTICLE_STORE_NAME)) {
@@ -103,31 +105,19 @@
             { name: "Pitchfork", category: "Music", url: "https://pitchfork.com/rss/news/" },
         ];
         
-        // --- NEW Icon Component ---
-        // This component correctly uses the 'lucide' library that is loaded in the <head>
         const Icon = ({ name, className = '', size = 24 }) => {
-            const svgHTML = lucide.icons[name] ? lucide.icons[name].toSvg({ class: className, width: size, height: size }) : '';
-            return <span dangerouslySetInnerHTML={{ __html: svgHTML }} />;
+            const iconHtml = lucide.icons[name] ? lucide.icons[name].toSvg({ class: className, width: size, height: size }) : '';
+            return <span dangerouslySetInnerHTML={{ __html: iconHtml }} />;
         };
 
-        // --- Helper Components ---
-        const Spinner = () => (
-            <div className="flex justify-center items-center h-full">
-                <Icon name="loader" className="animate-spin text-sky-400" size={48} />
-            </div>
-        );
+        const Spinner = () => <div className="flex justify-center items-center h-full"><Icon name="loader" className="animate-spin text-sky-400" size={48} /></div>;
 
         const IconButton = ({ iconName, onClick, label, className = '' }) => (
-            <button
-                onClick={onClick}
-                aria-label={label}
-                className={`p-3 rounded-full bg-gray-800/50 hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-sky-400 transition-all duration-200 ${className}`}
-            >
+            <button onClick={onClick} aria-label={label} className={`p-3 rounded-full bg-gray-800/50 hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-sky-400 transition-all duration-200 ${className}`}>
                 <Icon name={iconName} size={24} />
             </button>
         );
 
-        // --- Main App Components ---
         const ArticleView = ({ article, onSkip, onReadFull, onShare }) => {
             if (!article) {
                 return (
@@ -135,11 +125,9 @@
                         <Icon name="rss" size={64} className="mb-4 text-gray-600" />
                         <h2 className="text-2xl font-bold mb-2 text-gray-200">All caught up!</h2>
                         <p>You've read all the articles in this category.</p>
-                        <p className="mt-4 text-sm">Try selecting another category or adding new feeds.</p>
                     </div>
                 );
             }
-
             return (
                 <div className="flex flex-col h-full p-6 md:p-8 justify-between animate-fade-in">
                     <div className="overflow-y-auto no-scrollbar">
@@ -149,10 +137,7 @@
                     </div>
                     <div className="flex justify-center items-center space-x-4 pt-6">
                         <IconButton iconName="skip-forward" onClick={onSkip} label="Skip Article" />
-                        <button
-                            onClick={onReadFull}
-                            className="flex items-center space-x-2 px-6 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200 shadow-lg shadow-sky-500/20"
-                        >
+                        <button onClick={onReadFull} className="flex items-center space-x-2 px-6 py-3 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200 shadow-lg shadow-sky-500/20">
                             <Icon name="book-open" size={24} />
                             <span>Read Full</span>
                         </button>
@@ -166,10 +151,9 @@
             const [cleanedContent, setCleanedContent] = useState(null);
             const [isLoading, setIsLoading] = useState(true);
             const [error, setError] = useState('');
-
             useEffect(() => {
                 const fetchAndCleanArticle = async () => {
-                    if (!article || !article.link) return;
+                    if (!article?.link) return;
                     setIsLoading(true);
                     setError('');
                     try {
@@ -179,9 +163,8 @@
                         const html = await response.text();
                         const doc = new DOMParser().parseFromString(html, 'text/html');
                         const parsedArticle = new Readability(doc).parse();
-                        if (parsedArticle && parsedArticle.content) {
-                            setCleanedContent(parsedArticle);
-                        } else { throw new Error("Could not parse article content."); }
+                        if (parsedArticle?.content) setCleanedContent(parsedArticle);
+                        else throw new Error("Could not parse article content.");
                     } catch (e) {
                         console.error("Error fetching or parsing article:", e);
                         setError("Could not load the full article. Please try again later or view the original.");
@@ -189,7 +172,6 @@
                 };
                 fetchAndCleanArticle();
             }, [article]);
-
             return (
                 <div className="absolute inset-0 bg-black z-20 animate-slide-in-left">
                     <header className="sticky top-0 bg-black/80 backdrop-blur-sm z-10 flex items-center p-4">
@@ -210,7 +192,6 @@
         const FeedManager = ({ feeds, onAddFeed, onRemoveFeed, onClose }) => {
             const [newFeedUrl, setNewFeedUrl] = useState('');
             const [newFeedCategory, setNewFeedCategory] = useState('Tech');
-
             const handleAdd = (e) => {
                 e.preventDefault();
                 if (newFeedUrl.trim()) {
@@ -218,7 +199,6 @@
                     setNewFeedUrl('');
                 }
             };
-
             return (
                 <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-30 flex items-center justify-center animate-fade-in">
                     <div className="bg-gray-900/80 rounded-2xl shadow-2xl p-6 w-full max-w-md m-4 border border-gray-700">
@@ -279,11 +259,24 @@
 
             useEffect(() => {
                 const loadFeeds = async () => {
-                    let storedFeeds = await db.getAll('feeds');
+                    let storedFeeds = [];
+                    try {
+                        // THIS IS THE CRITICAL FIX: CATCH ERRORS FROM INDEXEDDB
+                        storedFeeds = await db.getAll('feeds');
+                    } catch (e) {
+                        console.error("Could not load feeds from IndexedDB:", e);
+                        setError("Could not load saved feeds. Using defaults.");
+                    }
+                    
                     if (storedFeeds.length === 0) {
                         storedFeeds = SUGGESTED_FEEDS;
-                        await Promise.all(storedFeeds.map(feed => db.put('feeds', feed)));
+                        try {
+                           await Promise.all(storedFeeds.map(feed => db.put('feeds', feed)));
+                        } catch (e) {
+                            console.error("Could not save default feeds to IndexedDB:", e);
+                        }
                     }
+
                     setFeeds(storedFeeds);
                     const uniqueCategories = ["All", ...new Set(storedFeeds.map(f => f.category))];
                     setCategories(uniqueCategories);
@@ -297,8 +290,13 @@
                 setIsLoading(true);
                 setError('');
                 const feedsToFetch = activeCategory === 'All' ? feeds : feeds.filter(f => f.category === activeCategory);
-                const cachedArticles = await db.getAll('articles');
-                const relevantCachedArticles = cachedArticles.filter(art => feedsToFetch.some(feed => feed.url === art.feedUrl));
+                let relevantCachedArticles = [];
+                try {
+                    const cachedArticles = await db.getAll('articles');
+                    relevantCachedArticles = cachedArticles.filter(art => feedsToFetch.some(feed => feed.url === art.feedUrl));
+                } catch (e) {
+                    console.error("Could not load articles from IndexedDB:", e);
+                }
 
                 if (!isOnline || (!forceRefresh && relevantCachedArticles.length > 0)) {
                     setArticles(relevantCachedArticles.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate)));
@@ -318,7 +316,13 @@
                     const results = await Promise.all(promises);
                     const newArticles = results.filter(Boolean).flatMap(feed => feed.items.map(item => ({...item, feedUrl: feed.feedUrl, feedTitle: feed.feedTitle })));
                     if (newArticles.length === 0 && relevantCachedArticles.length === 0) throw new Error("Could not fetch any articles.");
-                    await Promise.all(newArticles.map(art => db.put('articles', art)));
+                    
+                    try {
+                        await Promise.all(newArticles.map(art => db.put('articles', art)));
+                    } catch (e) {
+                        console.error("Could not save articles to IndexedDB:", e);
+                    }
+                    
                     setArticles(newArticles.sort((a, b) => new Date(b.isoDate) - new Date(a.isoDate)));
                     setCurrentArticleIndex(0);
                 } catch (e) {
@@ -328,7 +332,7 @@
                 } finally { setIsLoading(false); }
             }, [activeCategory, feeds, isOnline]);
 
-            useEffect(() => { if(activeCategory) fetchArticles(); }, [activeCategory]);
+            useEffect(() => { if(activeCategory) fetchArticles(); }, [activeCategory, fetchArticles]);
 
             const handleCategoryChange = (cat) => { setActiveCategory(cat); setCurrentArticleIndex(0); };
             const handleSkip = () => setCurrentArticleIndex(prev => prev + 1);
@@ -344,14 +348,14 @@
             const handleAddFeed = async (feed) => {
                 const newFeeds = [...feeds, feed];
                 setFeeds(newFeeds);
-                await db.put('feeds', feed);
+                try { await db.put('feeds', feed); } catch(e) { console.error("DB Error:", e); }
                 setCategories(["All", ...new Set(newFeeds.map(f => f.category))]);
                 fetchArticles(true);
             };
             const handleRemoveFeed = async (url) => {
                 const newFeeds = feeds.filter(f => f.url !== url);
                 setFeeds(newFeeds);
-                await db.delete('feeds', url);
+                try { await db.delete('feeds', url); } catch(e) { console.error("DB Error:", e); }
                 const newCategories = ["All", ...new Set(newFeeds.map(f => f.category))];
                 setCategories(newCategories);
                 if (!newCategories.includes(activeCategory)) { setActiveCategory("All"); }
@@ -398,9 +402,11 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons(); // Initialize icons
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(React.createElement(App));
         });
     </script>
 </body>
 </html>
+
